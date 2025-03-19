@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.tagui.mapper.RpaActionMapper">
+
+    <!-- ✅ 특정 action_id로 실행할 액션 조회 -->
+    <select id="findActionByActionId" resultMap="RpaActionResultMap">
+        SELECT * FROM rpa_actions WHERE action_id = #{actionId}
+    </select>
+
+    <!-- ✅ 특정 action_id에 대한 서브 액션 목록 조회 -->
+	<select id="findSubActionsByActionId" resultType="com.tagui.entity.RpaSubAction">
+	    SELECT * FROM rpa_sub_actions 
+	    WHERE action_id = #{actionId} 
+	    AND use_yn = 'Y'
+	    ORDER BY execute_order ASC
+	</select>
+
+
+    <!-- ✅ 시스템 ID로 도메인 조회 -->
+    <select id="findDomainBySystemId" resultType="String">
+        SELECT domain_url FROM rpa_systems WHERE system_id = #{systemId}
+    </select>
+
+    <!-- ✅ `RpaAction`과 `RpaSubAction` 관계 매핑 -->
+    <resultMap id="RpaActionResultMap" type="com.tagui.entity.RpaAction">
+        <id property="actionId" column="action_id"/>
+        <result property="systemId" column="system_id"/>
+        <result property="actionName" column="action_name"/>
+        <collection property="subActions" column="action_id"
+            select="com.tagui.mapper.RpaActionMapper.findSubActionsByActionId"/>
+    </resultMap>
+    
+    <!-- ✅ 특정 서브 액션에 매핑된 계정 목록 조회 -->
+	<select id="findAccountsBySubActionId" resultType="com.tagui.entity.RpaAccount">
+	    SELECT a.account_id, a.username, a.password 
+	    FROM rpa_accounts a
+	    JOIN rpa_sub_action_accounts sa ON a.account_id = sa.account_id
+	    WHERE sa.sub_action_id = #{subActionId} AND a.use_yn = 'Y' AND sa.use_yn = 'Y'
+	    ORDER BY a.account_id asc
+	</select>
+    
+    <!-- ✅ 실행 순서별 개수 조회 -->
+    <select id="countSubActionsByExecuteOrder" resultType="java.util.Map">
+		SELECT sa.execute_order, COUNT(*) AS count
+		FROM rpa_sub_action_accounts saa
+		JOIN rpa_sub_actions sa ON saa.sub_action_id = sa.sub_action_id
+		WHERE sa.action_id = #{actionId}
+		GROUP BY sa.execute_order
+		ORDER BY sa.execute_order ASC;
+
+    </select>
+    
+    
+    <resultMap id="RpaAccountResultMap" type="com.tagui.entity.RpaAccount">
+	    <id property="accountId" column="account_id"/>
+	    <result property="systemId" column="system_id"/>
+	    <result property="username" column="username"/>
+	    <result property="password" column="password"/>
+	    <result property="subActionId" column="sub_action_id"/>  <!-- ✅ 추가 -->
+	</resultMap>
+	
+	<select id="findAccountsByActionId" resultMap="RpaAccountResultMap">
+	    SELECT a.*, sa.sub_action_id
+	    FROM rpa_accounts a 
+	    JOIN rpa_sub_action_accounts sa ON a.account_id = sa.account_id 
+	    JOIN rpa_sub_actions s ON sa.sub_action_id = s.sub_action_id 
+	    WHERE s.action_id = #{actionId}
+	    AND sa.use_yn = 'Y'
+	</select>
+
+</mapper>
